@@ -1,0 +1,912 @@
+/* ==========================================================================
+   置き場 OKIBA ─ RIKUDO-REN GAME STORAGE
+   design: MIDNIGHT ARCADE WAREHOUSE
+   ========================================================================== */
+
+:root {
+  --bg:        #05060d;
+  --bg-2:      #0a0d18;
+  --panel:     #0b0f1d;
+  --panel-2:   #0e1324;
+  --line:      rgba(255, 255, 255, .08);
+  --line-2:    rgba(255, 255, 255, .14);
+  --text:      #e9edf8;
+  --dim:       #9aa3bd;
+  --dim-2:     #6b7490;
+  --cyan:      #59e3ff;
+  --magenta:   #ff3d81;
+  --gold:      #ffd60a;
+  --font-px:   'DotGothic16', 'Press Start 2P', sans-serif;
+  --font-en:   'Press Start 2P', monospace;
+  --font-jp:   'Zen Kaku Gothic New', 'Hiragino Kaku Gothic ProN', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-jp);
+  font-weight: 500;
+  line-height: 1.7;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--magenta); color: #fff; }
+
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+img { display: block; max-width: 100%; }
+
+/* スクロールバー */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #1c2440; border: 2px solid var(--bg); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: var(--cyan); }
+
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; border-radius: 4px; }
+
+/* ==========================================================================
+   背景レイヤー
+   ========================================================================== */
+
+#fx {
+  position: fixed; inset: 0; z-index: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+
+/* CRT 走査線 */
+.scanlines {
+  position: fixed; inset: 0; z-index: 60;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, .16)   0px,
+    rgba(0, 0, 0, .16)   1px,
+    transparent          1px,
+    transparent          3px
+  );
+  opacity: .55;
+  mix-blend-mode: multiply;
+}
+
+/* ゆっくり落ちてくる走査帯 */
+.scanlines::after {
+  content: '';
+  position: absolute; left: 0; right: 0; height: 140px;
+  background: linear-gradient(180deg, transparent, rgba(120, 220, 255, .045), transparent);
+  animation: crt-roll 9s linear infinite;
+}
+
+@keyframes crt-roll {
+  0%   { top: -160px; }
+  100% { top: 100%; }
+}
+
+.vignette {
+  position: fixed; inset: 0; z-index: 59;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 50% 0%, transparent 55%, rgba(0, 0, 0, .5) 100%),
+    radial-gradient(60% 40% at 50% 108%, rgba(89, 227, 255, .10), transparent 70%);
+}
+
+.site { position: relative; z-index: 1; }
+
+/* ==========================================================================
+   起動画面（BIOS）
+   ========================================================================== */
+
+#boot {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  background: #010208;
+  cursor: pointer;
+  transition: opacity .45s ease;
+}
+
+#boot.off {
+  opacity: 0;
+  pointer-events: none;
+  animation: crt-off .5s cubic-bezier(.23, 1, .32, 1) both;
+}
+
+/* CRT 消灯：横に潰れて消える */
+@keyframes crt-off {
+  0%   { transform: scaleY(1);   opacity: 1; filter: brightness(1); }
+  55%  { transform: scaleY(.012); opacity: 1; filter: brightness(3); }
+  75%  { transform: scaleY(.012) scaleX(.6); opacity: .9; filter: brightness(4); }
+  100% { transform: scaleY(.012) scaleX(0);  opacity: 0; filter: brightness(5); }
+}
+
+.boot-inner {
+  width: min(680px, calc(100vw - 48px));
+  font-family: var(--font-mono);
+  font-size: clamp(11px, 2.4vw, 14px);
+  line-height: 2;
+  color: #b7ffd9;
+  text-shadow: 0 0 8px rgba(80, 255, 170, .45);
+}
+
+#bootLog { white-space: pre-wrap; font-family: inherit; }
+
+#bootStart {
+  margin-top: 34px;
+  font-family: var(--font-en);
+  font-size: clamp(10px, 2.6vw, 15px);
+  color: #fff;
+  text-shadow: 0 0 10px var(--cyan);
+  letter-spacing: .12em;
+}
+
+.blink-fast { animation: blink .82s steps(2, start) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* ==========================================================================
+   上部バー
+   ========================================================================== */
+
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 58px; padding: 0 clamp(16px, 4vw, 40px);
+  background: linear-gradient(180deg, rgba(5, 6, 13, .92), rgba(5, 6, 13, .55));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand { display: flex; align-items: center; gap: 10px; }
+
+.brand-mark {
+  font-size: 18px;
+  color: var(--cyan);
+  text-shadow: 0 0 12px rgba(89, 227, 255, .8);
+  animation: brand-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes brand-pulse {
+  0%, 100% { transform: translateY(0);   opacity: 1; }
+  50%      { transform: translateY(-2px); opacity: .7; }
+}
+
+.brand-text {
+  font-family: var(--font-px);
+  font-size: 19px;
+  letter-spacing: .06em;
+}
+
+.brand-text i {
+  font-style: normal;
+  font-family: var(--font-en);
+  font-size: 9px;
+  color: var(--dim);
+  margin-left: 8px;
+  letter-spacing: .18em;
+  vertical-align: 2px;
+}
+
+.topnav { display: flex; align-items: center; gap: clamp(10px, 2.5vw, 26px); }
+
+.topnav-link {
+  font-family: var(--font-en);
+  font-size: 10px;
+  letter-spacing: .1em;
+  color: var(--dim);
+  transition: color .2s, text-shadow .2s;
+}
+
+.topnav-link:hover { color: var(--cyan); text-shadow: 0 0 10px rgba(89, 227, 255, .7); }
+
+.snd[aria-pressed="false"] { color: var(--dim-2); text-decoration: line-through; }
+
+/* ==========================================================================
+   ヒーロー
+   ========================================================================== */
+
+.hero {
+  position: relative;
+  min-height: 100svh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center;
+  padding: 120px 20px 90px;
+}
+
+.hero-eyebrow {
+  font-family: var(--font-en);
+  font-size: clamp(8px, 1.8vw, 11px);
+  letter-spacing: .18em;
+  color: var(--cyan);
+  text-shadow: 0 0 12px rgba(89, 227, 255, .65);
+  margin-bottom: 30px;
+  opacity: 0; animation: rise .7s .1s ease both;
+}
+
+.hero-title {
+  position: relative;
+  font-family: var(--font-px);
+  font-weight: 400;
+  font-size: clamp(88px, 19vw, 224px);
+  line-height: 1;
+  letter-spacing: .04em;
+  color: #fff;
+  text-shadow:
+    0 0 22px rgba(89, 227, 255, .35),
+    0 0 60px rgba(89, 227, 255, .18);
+  opacity: 0; animation: rise .8s .22s ease both;
+}
+
+/* グリッチ（たまに走る） */
+.glitch::before, .glitch::after {
+  content: attr(data-text);
+  position: absolute; inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.glitch::before {
+  color: var(--magenta);
+  text-shadow: none;
+  animation: glitch-a 3.8s infinite;
+}
+
+.glitch::after {
+  color: var(--cyan);
+  text-shadow: none;
+  animation: glitch-b 3.8s infinite;
+}
+
+@keyframes glitch-a {
+  0%, 91%, 94%, 100% { opacity: 0; transform: none; clip-path: inset(0 0 0 0); }
+  92% { opacity: .85; transform: translate(-6px, 2px);  clip-path: inset(12% 0 58% 0); }
+  93% { opacity: .85; transform: translate(5px, -1px);  clip-path: inset(64% 0 8% 0); }
+}
+
+@keyframes glitch-b {
+  0%, 91%, 94%, 100% { opacity: 0; transform: none; clip-path: inset(0 0 0 0); }
+  92% { opacity: .85; transform: translate(6px, -2px);  clip-path: inset(58% 0 12% 0); }
+  93% { opacity: .85; transform: translate(-4px, 2px);  clip-path: inset(8% 0 66% 0); }
+}
+
+.hero-en {
+  margin-top: 18px;
+  font-family: var(--font-en);
+  font-size: clamp(8px, 2vw, 13px);
+  letter-spacing: .42em;
+  text-indent: .42em;
+  color: var(--dim);
+  display: flex; align-items: center; gap: 18px;
+  opacity: 0; animation: rise .7s .34s ease both;
+}
+
+.hero-en::before, .hero-en::after {
+  content: '';
+  width: clamp(30px, 8vw, 90px); height: 1px;
+  background: linear-gradient(90deg, transparent, var(--line-2));
+}
+
+.hero-en::after { transform: scaleX(-1); }
+
+.hero-lead {
+  margin-top: 34px;
+  font-size: clamp(14px, 2.6vw, 17px);
+  color: var(--dim);
+  letter-spacing: .02em;
+  opacity: 0; animation: rise .7s .46s ease both;
+}
+
+.hero-lead b { color: var(--gold); font-weight: 900; }
+.nowrap { white-space: nowrap; }
+
+.hero-cta {
+  display: flex; flex-wrap: wrap; gap: 16px; justify-content: center;
+  margin-top: 42px;
+  opacity: 0; animation: rise .7s .58s ease both;
+}
+
+.btn {
+  font-family: var(--font-jp);
+  font-weight: 900;
+  font-size: 14.5px;
+  letter-spacing: .08em;
+  padding: 15px 34px;
+  border-radius: 10px;
+  transition: transform .18s ease, box-shadow .18s ease, background .18s, color .18s, border-color .18s;
+}
+
+.btn-primary {
+  color: #04121a;
+  background: linear-gradient(135deg, var(--cyan), #7da9ff 55%, var(--magenta));
+  box-shadow: 0 0 24px rgba(89, 227, 255, .35), 0 8px 26px -10px rgba(255, 61, 129, .5);
+}
+
+.btn-primary:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 0 38px rgba(89, 227, 255, .55), 0 14px 34px -10px rgba(255, 61, 129, .65);
+}
+
+.btn-ghost {
+  color: var(--text);
+  border: 1px solid var(--line-2);
+  background: rgba(255, 255, 255, .03);
+  backdrop-filter: blur(4px);
+}
+
+.btn-ghost:hover {
+  transform: translateY(-3px);
+  border-color: var(--magenta);
+  color: #fff;
+  box-shadow: 0 0 22px rgba(255, 61, 129, .35);
+}
+
+.hero-stats {
+  display: flex; flex-wrap: wrap; justify-content: center;
+  gap: clamp(22px, 6vw, 64px);
+  list-style: none;
+  margin-top: 56px;
+  opacity: 0; animation: rise .7s .7s ease both;
+}
+
+.hero-stats li { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+
+.hero-stats b {
+  font-family: var(--font-px);
+  font-weight: 400;
+  font-size: clamp(30px, 5.4vw, 46px);
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 0 16px rgba(255, 255, 255, .25);
+}
+
+.hero-stats span {
+  font-family: var(--font-en);
+  font-size: 8.5px;
+  letter-spacing: .22em;
+  color: var(--dim-2);
+}
+
+.scroll-hint {
+  position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%);
+  font-family: var(--font-en);
+  font-size: 9px; letter-spacing: .3em;
+  color: var(--dim-2);
+  animation: scroll-bounce 1.8s ease-in-out infinite;
+  opacity: 0; 
+}
+
+.booted .scroll-hint { opacity: 1; transition: opacity 1s 1.2s; }
+
+@keyframes scroll-bounce {
+  0%, 100% { transform: translate(-50%, 0); }
+  50%      { transform: translate(-50%, 8px); }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(26px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 起動前は待機 */
+.hero-eyebrow, .hero-title, .hero-en, .hero-lead, .hero-cta, .hero-stats { animation-play-state: paused; }
+.booted .hero-eyebrow, .booted .hero-title, .booted .hero-en,
+.booted .hero-lead, .booted .hero-cta, .booted .hero-stats { animation-play-state: running; }
+
+/* ==========================================================================
+   セクション見出し & ツールバー
+   ========================================================================== */
+
+.games {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 30px clamp(16px, 4vw, 40px) 110px;
+}
+
+.section-head { padding-top: 40px; }
+
+.section-head h2 {
+  font-family: var(--font-en);
+  font-size: clamp(15px, 3.4vw, 24px);
+  letter-spacing: .06em;
+  color: #fff;
+}
+
+.section-head h2 i {
+  font-style: normal;
+  color: var(--cyan);
+  text-shadow: 0 0 12px rgba(89, 227, 255, .6);
+  animation: blink 2.4s steps(2, start) infinite;
+}
+
+.section-sub {
+  margin-top: 12px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: .12em;
+  color: var(--dim-2);
+}
+
+.toolbar {
+  position: sticky; top: 58px; z-index: 40;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 14px;
+  margin: 34px 0 26px;
+  padding: 13px 16px;
+  background: rgba(7, 9, 18, .88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.chip {
+  font-family: var(--font-jp);
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: .04em;
+  color: var(--dim);
+  padding: 7px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .02);
+  transition: all .18s;
+}
+
+.chip b {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 10px;
+  color: var(--dim-2);
+  margin-left: 5px;
+}
+
+.chip:hover { color: #fff; border-color: var(--cyan); }
+
+.chip.on {
+  color: #04121a;
+  background: var(--cyan);
+  border-color: var(--cyan);
+  box-shadow: 0 0 16px rgba(89, 227, 255, .5);
+}
+
+.chip.on b { color: rgba(4, 18, 26, .65); }
+
+.tools { display: flex; align-items: center; gap: 10px; }
+
+.tool-btn {
+  font-family: var(--font-jp);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--dim);
+  padding: 7px 13px;
+  border: 1px dashed var(--line-2);
+  border-radius: 8px;
+  white-space: nowrap;
+  transition: all .18s;
+}
+
+.tool-btn:hover { color: var(--gold); border-color: var(--gold); }
+
+.search {
+  display: flex; align-items: center; gap: 7px;
+  padding: 7px 13px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .02);
+  transition: border-color .18s, box-shadow .18s;
+}
+
+.search:focus-within { border-color: var(--cyan); box-shadow: 0 0 14px rgba(89, 227, 255, .25); }
+
+.search span { color: var(--dim-2); font-size: 13px; }
+
+.search input {
+  width: clamp(150px, 24vw, 250px);
+  background: none; border: none; outline: none;
+  color: var(--text);
+  font-family: var(--font-jp);
+  font-size: 12.5px;
+}
+
+.search input::placeholder { color: var(--dim-2); }
+
+/* ==========================================================================
+   ゲームグリッド & カード
+   ========================================================================== */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 24px;
+  perspective: 1600px;
+}
+
+.card {
+  --ac: var(--cyan);
+  position: relative;
+  display: flex; flex-direction: column;
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  transform-style: preserve-3d;
+  transition: transform .15s ease, border-color .22s, box-shadow .22s;
+  animation: card-in .5s ease both;
+}
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .card:hover {
+    transform: translateY(-7px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+    border-color: color-mix(in srgb, var(--ac) 65%, transparent);
+    box-shadow:
+      0 22px 50px -16px color-mix(in srgb, var(--ac) 38%, transparent),
+      0 0 0 1px color-mix(in srgb, var(--ac) 25%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, .06);
+  }
+
+  .card:hover .card-media img { transform: scale(1.06); filter: brightness(1.12) saturate(1.1); }
+  .card:hover .card-no { color: var(--ac); text-shadow: 0 0 14px var(--ac); }
+  .card:hover .play {
+    background: var(--ac);
+    color: #06070f;
+    box-shadow: 0 0 20px color-mix(in srgb, var(--ac) 55%, transparent);
+  }
+}
+
+.card-media {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #070a14;
+}
+
+.card-media img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transition: transform .45s ease, filter .45s ease;
+}
+
+/* サムネイル上の走査線 */
+.card-media::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .18) 0 1px, transparent 1px 3px);
+  pointer-events: none;
+}
+
+/* 下部のフェード */
+.card-media::before {
+  content: '';
+  position: absolute; inset: 0; z-index: 1;
+  background: linear-gradient(180deg, rgba(5, 6, 13, .34) 0, transparent 26%, transparent 62%, rgba(5, 6, 13, .78));
+  pointer-events: none;
+}
+
+.card-no {
+  position: absolute; top: 10px; left: 14px; z-index: 2;
+  font-family: var(--font-px);
+  font-size: 34px;
+  line-height: 1;
+  color: rgba(255, 255, 255, .82);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, .8);
+  transition: color .25s, text-shadow .25s;
+}
+
+.card-badge {
+  position: absolute; top: 12px; right: 12px; z-index: 2;
+  font-family: var(--font-en);
+  font-size: 7.5px;
+  letter-spacing: .14em;
+  color: #06070f;
+  background: var(--ac);
+  padding: 5px 8px 4px;
+  border-radius: 5px;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--ac) 60%, transparent);
+}
+
+/* 画像未生成タイトル用：カートリッジ風アート */
+.glyph-art {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  background:
+    radial-gradient(80% 90% at 50% 30%, color-mix(in srgb, var(--ac) 16%, transparent), transparent 70%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .028) 0 2px, transparent 2px 24px),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .028) 0 2px, transparent 2px 24px),
+    #070a16;
+}
+
+.glyph-art::before {
+  content: attr(data-glyph);
+  font-family: var(--font-px);
+  font-size: 92px;
+  color: var(--ac);
+  text-shadow:
+    0 0 18px color-mix(in srgb, var(--ac) 75%, transparent),
+    0 0 60px color-mix(in srgb, var(--ac) 40%, transparent);
+  animation: glyph-float 3.6s ease-in-out infinite;
+}
+
+.glyph-art::after {
+  content: 'DATA ▸ ' attr(data-code);
+  position: absolute; bottom: 10px; right: 14px;
+  font-family: var(--font-en);
+  font-size: 7px;
+  letter-spacing: .16em;
+  color: color-mix(in srgb, var(--ac) 80%, white);
+  opacity: .8;
+}
+
+@keyframes glyph-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-7px); }
+}
+
+.card-body {
+  display: flex; flex-direction: column; flex: 1;
+  padding: 18px 20px 20px;
+  gap: 9px;
+}
+
+.card-tags { display: flex; align-items: center; gap: 8px; }
+
+.tag {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .06em;
+  color: var(--ac);
+  background: color-mix(in srgb, var(--ac) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ac) 38%, transparent);
+  padding: 2.5px 10px;
+  border-radius: 999px;
+}
+
+.tag-en {
+  font-family: var(--font-en);
+  font-size: 7.5px;
+  letter-spacing: .18em;
+  color: var(--dim-2);
+}
+
+.card-title {
+  font-weight: 900;
+  font-size: 19px;
+  line-height: 1.4;
+  letter-spacing: .01em;
+}
+
+.card-subtitle {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .06em;
+  color: color-mix(in srgb, var(--ac) 62%, var(--dim));
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* カード全体をクリック可能に（伸縮リンク） */
+.title-link { color: #fff; transition: color .2s; }
+.title-link::after { content: ''; position: absolute; inset: 0; z-index: 2; border-radius: 14px; }
+
+.card:hover .title-link { color: color-mix(in srgb, var(--ac) 55%, white); }
+
+.card-desc {
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--dim);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-meta {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+.host {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--dim-2);
+  letter-spacing: .01em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.host::before { content: '▲ '; color: color-mix(in srgb, var(--ac) 80%, white); }
+
+.date {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--dim-2);
+  white-space: nowrap;
+}
+
+.card-foot { display: flex; gap: 10px; margin-top: 12px; }
+
+.play {
+  position: relative; z-index: 3;
+  flex: 1;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  font-family: var(--font-en);
+  font-size: 10px;
+  letter-spacing: .14em;
+  color: #fff;
+  border: 1px solid color-mix(in srgb, var(--ac) 45%, transparent);
+  border-radius: 8px;
+  padding: 11px 10px 10px;
+  transition: all .2s;
+}
+
+.repo {
+  position: relative; z-index: 3;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 42px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--dim);
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  transition: all .2s;
+}
+
+.repo:hover { color: #fff; border-color: #fff; box-shadow: 0 0 14px rgba(255, 255, 255, .25); }
+
+/* 空きスロット（18枠目） */
+.slot {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  min-height: 300px;
+  border: 1.5px dashed var(--line-2);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .012);
+  transition: all .2s;
+  animation: card-in .5s ease both;
+}
+
+.slot:hover { border-color: var(--gold); background: rgba(255, 214, 10, .03); }
+
+.slot-plus {
+  font-family: var(--font-px);
+  font-size: 46px;
+  color: var(--dim-2);
+  transition: color .2s, text-shadow .2s;
+}
+
+.slot:hover .slot-plus { color: var(--gold); text-shadow: 0 0 18px rgba(255, 214, 10, .6); }
+
+.slot p { font-family: var(--font-mono); font-size: 11px; letter-spacing: .14em; color: var(--dim-2); text-align: center; line-height: 2; }
+
+.slot p b { color: var(--dim); font-weight: 700; }
+
+.empty {
+  margin-top: 40px;
+  text-align: center;
+  font-family: var(--font-px);
+  font-size: 17px;
+  color: var(--dim);
+}
+
+.empty span { font-size: 12px; color: var(--dim-2); font-family: var(--font-jp); }
+
+/* ==========================================================================
+   フッター
+   ========================================================================== */
+
+.footer {
+  position: relative;
+  text-align: center;
+  padding: 90px 20px 60px;
+  border-top: 1px solid var(--line);
+  background: linear-gradient(180deg, transparent, rgba(89, 227, 255, .035));
+}
+
+.footer-coin {
+  font-family: var(--font-en);
+  font-size: clamp(10px, 2.4vw, 14px);
+  letter-spacing: .2em;
+  color: var(--gold);
+  text-shadow: 0 0 14px rgba(255, 214, 10, .5);
+}
+
+.blink-slow { animation: blink 1.4s steps(2, start) infinite; }
+
+.footer-line {
+  margin-top: 22px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: .1em;
+  color: var(--dim);
+}
+
+.footer-line a { color: var(--cyan); transition: text-shadow .2s; }
+.footer-line a:hover { text-shadow: 0 0 10px rgba(89, 227, 255, .8); }
+
+.footer-line b { color: #fff; }
+
+.footer-line.dim { color: var(--dim-2); font-size: 10px; margin-top: 10px; }
+
+/* ==========================================================================
+   トースト / ✝本質✝モード
+   ========================================================================== */
+
+.toast {
+  position: fixed; left: 50%; bottom: 34px; z-index: 120;
+  transform: translateX(-50%) translateY(20px);
+  max-width: min(560px, calc(100vw - 40px));
+  background: rgba(10, 13, 24, .95);
+  border: 1px solid var(--cyan);
+  border-radius: 10px;
+  box-shadow: 0 0 30px rgba(89, 227, 255, .35);
+  padding: 13px 22px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  opacity: 0;
+  transition: opacity .3s, transform .3s;
+  pointer-events: none;
+}
+
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.honess .site { animation: hue-cycle 7s linear infinite; }
+
+@keyframes hue-cycle { to { filter: hue-rotate(360deg); } }
+
+.honess-cross {
+  position: fixed;
+  z-index: 90;
+  font-family: var(--font-px);
+  pointer-events: none;
+  animation: cross-rise var(--dur, 7s) linear forwards;
+}
+
+@keyframes cross-rise {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 0; }
+  12%  { opacity: .9; }
+  100% { transform: translateY(-105vh) rotate(var(--rot, 40deg)); opacity: 0; }
+}
+
+/* ==========================================================================
+   レスポンシブ
+   ========================================================================== */
+
+@media (max-width: 720px) {
+  .toolbar { position: static; }
+  .tools { width: 100%; justify-content: space-between; }
+  .search { flex: 1; }
+  .search input { width: 100%; }
+  .hero-lead br { display: none; }
+  .card-no { font-size: 27px; }
+  .glyph-art::before { font-size: 72px; }
+}
+
+/* ==========================================================================
+   アニメーション抑制
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: .001s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001s !important;
+  }
+  .scanlines::after { display: none; }
+  .hero-eyebrow, .hero-title, .hero-en, .hero-lead, .hero-cta,
+  .hero-stats, .scroll-hint, .card, .slot {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+}

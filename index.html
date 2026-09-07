@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>置き場 OKIBA ── rikudo-ren のゲーム置き場</title>
+  <meta name="description" content="rikudo-ren が Vercel に置いた全17本のブラウザゲームを、ぜんぶここに。格闘・フライト・ノベル・数字・RPG・アクション。選んで、起動して、勝手に遊んでくれ。">
+  <meta name="theme-color" content="#05060d">
+
+  <!-- OGP -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="置き場 OKIBA">
+  <meta property="og:title" content="置き場 OKIBA ── rikudo-ren のゲーム置き場">
+  <meta property="og:description" content="Vercel に置いた全17本のブラウザゲームを、ぜんぶここに。">
+  <meta property="og:image" content="assets/img/honkaku.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2305060d'/%3E%3Cpath d='M32 12 L52 48 L12 48 Z' fill='none' stroke='%2359e3ff' stroke-width='5' stroke-linejoin='round'/%3E%3Cpath d='M32 24 L43 45 L21 45 Z' fill='%23ff3d81'/%3E%3C/svg%3E">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=JetBrains+Mono:wght@400;700&family=Press+Start+2P&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <!-- ▼ 起動画面（BIOS / PRESS START） -->
+  <div id="boot" role="button" aria-label="スタート画面。クリックまたは何かキーを押して開始">
+    <div class="boot-inner">
+      <pre id="bootLog" aria-hidden="true"></pre>
+      <p id="bootStart" hidden>PRESS ANY KEY<span class="blink-fast">_</span></p>
+    </div>
+    <div class="boot-roll" aria-hidden="true"></div>
+  </div>
+
+  <!-- ▼ 背景（星野 + グリッドフロア） -->
+  <canvas id="fx" aria-hidden="true"></canvas>
+  <div class="scanlines" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+  <div id="honEssFx" aria-hidden="true"></div>
+
+  <div class="site" id="site">
+
+    <!-- ▼ 上部バー -->
+    <header class="topbar">
+      <a class="brand" href="#top">
+        <span class="brand-mark" aria-hidden="true">▲</span>
+        <span class="brand-text">置き場<i>OKIBA</i></span>
+      </a>
+      <nav class="topnav">
+        <a href="#games" class="topnav-link">GAMES</a>
+        <a href="https://github.com/Rikudo-ren" target="_blank" rel="noopener" class="topnav-link">GITHUB↗</a>
+        <button id="sndBtn" class="topnav-link snd" type="button" aria-pressed="true" title="サウンド切替（M）">SND:ON</button>
+      </nav>
+    </header>
+
+    <main>
+      <!-- ▼ ヒーロー -->
+      <section class="hero" id="top">
+        <p class="hero-eyebrow">SYS://OKIBA.EXE ─ RIKUDO-REN ALL DEPLOYS</p>
+        <h1 class="hero-title glitch" data-text="置き場">置き場</h1>
+        <p class="hero-en">O&nbsp;K&nbsp;I&nbsp;B&nbsp;A&nbsp;&nbsp;—&nbsp;&nbsp;GAME&nbsp;STORAGE&nbsp;—</p>
+        <p class="hero-lead">
+          rikudo-ren が作ったブラウザゲームを、<span class="nowrap">ぜんぶ置いてある場所。</span><br>
+          <b>17本</b>・常時稼働中。気になったものから、ご自由に。
+        </p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="#games">▶&nbsp;ゲームを選ぶ</a>
+          <button class="btn btn-ghost" id="randomBtn" type="button">⟳&nbsp;ランダム起動</button>
+        </div>
+        <ul class="hero-stats">
+          <li><b>17</b><span>GAMES</span></li>
+          <li><b>6</b><span>GENRES</span></li>
+          <li><b>▲</b><span>VERCEL</span></li>
+          <li><b>∞</b><span>✝本質✝</span></li>
+        </ul>
+        <div class="scroll-hint" aria-hidden="true">▼&nbsp;SCROLL</div>
+      </section>
+
+      <!-- ▼ ゲーム一覧 -->
+      <section class="games" id="games">
+        <div class="section-head">
+          <h2><i>//</i>&nbsp;SELECT YOUR GAME</h2>
+          <p class="section-sub">全17タイトル ─ ALL SYSTEMS OPERATIONAL ─ クリックで起動</p>
+        </div>
+
+        <div class="toolbar">
+          <div class="chips" id="chips" aria-label="ジャンルでしぼりこみ"></div>
+          <div class="tools">
+            <button id="sortBtn" class="tool-btn" type="button" title="並び順を切り替え">並び:お薦め</button>
+            <label class="search">
+              <span aria-hidden="true">⌕</span>
+              <input id="searchInput" type="search" placeholder="サーチ（タイトル・ジャンル・URL）" autocomplete="off" spellcheck="false">
+            </label>
+          </div>
+        </div>
+
+        <div class="grid" id="grid"></div>
+        <p class="empty" id="empty" hidden>── 該当なし ──<br><span>キーワードかジャンルを変えてみてくれ</span></p>
+      </section>
+    </main>
+
+    <!-- ▼ フッター -->
+    <footer class="footer">
+      <p class="footer-coin blink-slow">INSERT&nbsp;COIN&nbsp;TO&nbsp;CONTINUE</p>
+      <p class="footer-line">© 2026 <a href="https://github.com/Rikudo-ren" target="_blank" rel="noopener">RIKUDO-REN</a>&nbsp;—&nbsp;ALL&nbsp;GAMES&nbsp;DEPLOYED&nbsp;ON&nbsp;<b>▲&nbsp;VERCEL</b></p>
+      <p class="footer-line dim">置き場 OKIBA ─ 各タイトルのライセンス・著作権はそれぞれのリポジトリに準じる</p>
+    </footer>
+
+  </div>
+
+  <!-- ▼ トースト -->
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script src="assets/app.js"></script>
+  <noscript>
+    <style>
+      #boot { display: none; }
+      .hero-eyebrow, .hero-title, .hero-en, .hero-lead,
+      .hero-cta, .hero-stats, .scroll-hint { animation: none !important; opacity: 1 !important; }
+    </style>
+  </noscript>
+</body>
+</html>
